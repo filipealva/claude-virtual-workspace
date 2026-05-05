@@ -1,0 +1,18 @@
+{
+  "name": "filipealva",
+  "description": "Filipe Alvarenga's Claude Code plugins.",
+  "owner": {
+    "name": "Filipe Alvarenga",
+    "url": "https://github.com/filipealva"
+  },
+  "plugins": [
+    {
+      "name": "virtual-workspace",
+      "description": "Create virtual Claude Code workspaces that unify agents, commands, skills, and hooks across multiple sibling git repos.",
+      "source": "./",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["workspace", "agents", "multi-repo"]
+    }
+  ]
+}

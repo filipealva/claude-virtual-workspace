@@ -1,0 +1,10 @@
+{
+  "name": "virtual-workspace",
+  "description": "Create virtual Claude Code workspaces that unify agents, commands, skills, and hooks across multiple sibling git repos.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Filipe Alvarenga"
+  },
+  "homepage": "https://github.com/filipealva/claude-virtual-workspace",
+  "license": "MIT"
+}
