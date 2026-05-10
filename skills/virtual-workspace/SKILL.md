@@ -1,6 +1,6 @@
 ---
 name: virtual-workspace
-description: Use when the user wants to set up a parent folder that hosts multiple sibling git repos and unifies their Claude Code agents, commands, skills, and hooks into one session — e.g. "create a workspace for these repos", "I want one Claude session across my frontend and backend repos", "set up a multi-repo workspace", "combine repos for Claude", "make a workspace shell so I can use agents from multiple repos at once". Walks the user through naming the workspace, listing repo URLs (clones any missing), and generates the canonical scaffolding (bootstrap.sh, pull-all.sh, workspace.conf, CLAUDE.md, README.md, .gitignore, .code-workspace), then runs bootstrap to wire up the symlinks.
+description: Use when the user wants to set up a parent folder that hosts multiple sibling git repos and unifies their Claude Code agents, commands, skills, and hooks into one session — e.g. "create a workspace for these repos", "I want one Claude session across my frontend and backend repos", "set up a multi-repo workspace", "combine repos for Claude", "make a workspace shell so I can use agents from multiple repos at once". Also use when the user wants to manage worktrees in an existing workspace — e.g. "create worktrees for feature/x", "set up feature branch across repos", "start a multi-repo feature", "remove worktrees for feature/x", "show worktree status", "I want to work on feature/x across all repos", "clean up the feature branch worktrees".
 user-invocable: true
 allowed-tools:
   - Read
@@ -10,11 +10,29 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /virtual-workspace:create — Build a multi-repo Claude Code workspace shell
+# /virtual-workspace — Multi-repo Claude Code workspace management
 
-This skill creates a **workspace shell**: a parent folder that hosts multiple sibling git repos and exposes the union of their `.claude/{agents,commands,skills,hooks}/` to a single Claude Code session via symlinks. It is the canonical workaround for the fact that Claude Code does not natively merge `.claude/` configs across sibling roots.
+This skill has two modes:
+
+1. **Create** — build a new workspace shell from scratch (invoked when no `workspace.conf` exists in the working directory).
+2. **Manage worktrees** — create, inspect, or remove worktrees for multi-repo feature branches in an existing workspace (invoked when `workspace.conf` exists).
+
+## Routing
+
+When this skill is invoked, check whether `workspace.conf` exists in the current working directory (or any parent up to 3 levels):
+
+- **If `workspace.conf` is NOT found**: run the **Create flow** (section below).
+- **If `workspace.conf` IS found**: run the **Worktree management flow** (section below). The workspace root is the directory containing `workspace.conf`.
+
+---
+
+# Create flow — Build a new multi-repo Claude Code workspace shell
+
+This flow creates a **workspace shell**: a parent folder that hosts multiple sibling git repos and exposes the union of their `.claude/{agents,commands,skills,hooks}/` to a single Claude Code session via symlinks. It is the canonical workaround for the fact that Claude Code does not natively merge `.claude/` configs across sibling roots.
 
 The workspace shell never tracks changes inside the sub-repos — they are gitignored. The shell only owns the cross-repo glue.
+
+The workspace supports **worktrees** for multi-repo feature development: create synchronized feature branches across multiple repos, work on them in one Claude session, commit/push independently, and open PRs per repo.
 
 ---
 
@@ -24,6 +42,9 @@ This skill ships canonical scripts and templates in `${CLAUDE_PLUGIN_ROOT}/skill
 
 - `bootstrap.sh` — copy verbatim into every new workspace
 - `pull-all.sh` — copy verbatim into every new workspace
+- `worktree-create.sh` — copy verbatim into every new workspace
+- `worktree-remove.sh` — copy verbatim into every new workspace
+- `worktree-status.sh` — copy verbatim into every new workspace
 - `templates/workspace.conf.tmpl`
 - `templates/CLAUDE.md.tmpl`
 - `templates/README.md.tmpl`
@@ -42,7 +63,7 @@ Follow these steps in order. Do not skip the confirmation step.
 
 Tell the user, in 2-3 sentences, what you're about to build and that the shell will not track sub-repo contents. Example:
 
-> I'll create a workspace shell — a thin parent folder that holds your repos side-by-side and surfaces all their Claude Code agents/commands/skills/hooks in one session via symlinks. The shell itself never tracks the sub-repos' contents; it only owns the cross-repo glue (bootstrap script, workspace.conf, etc.).
+> I'll create a workspace shell — a thin parent folder that holds your repos side-by-side and surfaces all their Claude Code agents/commands/skills/hooks in one session via symlinks. The shell itself never tracks the sub-repos' contents; it only owns the cross-repo glue (bootstrap script, workspace.conf, etc.). It also includes worktree scripts for multi-repo feature branches.
 
 ### 2. Gather inputs
 
@@ -83,6 +104,9 @@ Files I will create at <parent>/<Name>/:
   workspace.conf
   bootstrap.sh
   pull-all.sh
+  worktree-create.sh
+  worktree-remove.sh
+  worktree-status.sh
   CLAUDE.md
   README.md
   .gitignore
@@ -99,7 +123,7 @@ Wait for "yes" (or equivalent). If the user wants changes, loop back to step 2.
 Use absolute paths throughout. Let `WS=<parent>/<Name>` and `ASSETS=${CLAUDE_PLUGIN_ROOT}/skills/virtual-workspace/assets`.
 
 1. `mkdir -p "$WS"`.
-2. **Copy** (do not edit) `$ASSETS/bootstrap.sh` and `$ASSETS/pull-all.sh` into `$WS/`. Use `cp` via Bash. Then `chmod +x "$WS/bootstrap.sh" "$WS/pull-all.sh"`.
+2. **Copy** (do not edit) `$ASSETS/bootstrap.sh`, `$ASSETS/pull-all.sh`, `$ASSETS/worktree-create.sh`, `$ASSETS/worktree-remove.sh`, and `$ASSETS/worktree-status.sh` into `$WS/`. Use `cp` via Bash. Then `chmod +x "$WS/bootstrap.sh" "$WS/pull-all.sh" "$WS/worktree-create.sh" "$WS/worktree-remove.sh" "$WS/worktree-status.sh"`.
 3. Read each `*.tmpl` file with the Read tool, perform substitutions, and Write the result to `$WS/`. Substitutions:
 
    | Template                  | Output filename             | Substitutions |
@@ -140,9 +164,9 @@ If yes:
 1. Ask for the GitHub owner/org (default: detect from `gh api user --jq .login` if `gh` is available).
 2. Ask for the repo name (default: workspace name).
 3. `cd "$WS"`, then `git init -b main`.
-4. Stage **only the seven shell files** (NOT the sub-repo dirs):
+4. Stage **only the shell files** (NOT the sub-repo dirs):
    ```sh
-   git add .gitignore CLAUDE.md README.md bootstrap.sh pull-all.sh workspace.conf <Name>.code-workspace
+   git add .gitignore CLAUDE.md README.md bootstrap.sh pull-all.sh worktree-create.sh worktree-remove.sh worktree-status.sh workspace.conf <Name>.code-workspace
    ```
 5. Commit with a HEREDOC message ending with the standard `Co-Authored-By: Claude` trailer.
 6. For "create new repo": `gh repo create <owner>/<name> --private --source=. --push`. For existing-repo path: `git remote add origin <url> && git push -u origin main`.
@@ -162,8 +186,13 @@ Next steps:
   claude                          # start a Claude Code session with all sub-repo agents loaded
 
 Maintenance:
-  ./pull-all.sh                   # fast-forward pull every sub-repo
+  ./pull-all.sh                   # fast-forward pull every sub-repo and worktree
   ./bootstrap.sh                  # rerun whenever a sub-repo adds/renames/removes an agent or skill
+
+Multi-repo features:
+  ./worktree-create.sh feature/x  # create worktrees for all repos on branch feature/x
+  ./worktree-status.sh            # check branch + dirty state across all repos/worktrees
+  ./worktree-remove.sh feature/x  # clean up when the feature is merged
 
 To add a new sub-repo later:
   1. Append "name|git-url" to workspace.conf
@@ -174,21 +203,239 @@ To add a new sub-repo later:
 
 ---
 
+# Worktree management flow — Manage feature branches in an existing workspace
+
+This flow runs when `workspace.conf` is found. It handles creating, inspecting, and removing worktrees for multi-repo feature development.
+
+## Detect the user's intent
+
+Determine which action the user wants. If unclear, use `AskUserQuestion`:
+
+| Intent | Triggers | Action |
+|--------|----------|--------|
+| **Create** | "create worktrees for...", "start feature/x", "work on feature/x across repos", "set up branch..." | → Run **Worktree Create** |
+| **Status** | "show worktree status", "what branches are active", "status" | → Run **Worktree Status** |
+| **Remove** | "remove worktrees for...", "clean up feature/x", "done with feature/x" | → Run **Worktree Remove** |
+| **Pull** | "pull all repos", "update everything", "sync" | → Run **Pull All** |
+
+---
+
+## Worktree Create
+
+### 1. Gather inputs
+
+**a) Branch name** — free text.
+Ask: "What branch name for this feature? (e.g. `feature/payments`, `fix/auth-bug`)"
+
+If the user already stated the branch in their message (e.g. "create worktrees for feature/payments"), use that directly — don't re-ask.
+
+**b) Which repos** — `AskUserQuestion` (multi-select) or free text.
+Read `workspace.conf`, parse the standard (non-worktree) repos, and present them:
+
+> Which repos should get a worktree on `<branch>`?
+> - **All repos** (recommended) — creates worktrees for every standard repo
+> - **Select specific repos** — let me pick
+
+If "specific", show a multi-select with the repo names. If the user already specified repos in their message, use those directly.
+
+### 2. Confirm
+
+Print a summary:
+
+```
+I'll create worktrees for branch '<branch>' in:
+  - <repo1> → <repo1>--<sanitized-branch>/
+  - <repo2> → <repo2>--<sanitized-branch>/
+
+This will:
+  1. Create the branch in each repo (if it doesn't exist)
+  2. Create worktree directories
+  3. Update workspace.conf and .gitignore
+  4. Run bootstrap.sh to wire up .claude/ symlinks
+
+Proceed? (yes / no / changes)
+```
+
+Wait for confirmation.
+
+### 3. Execute
+
+```sh
+cd "<workspace-root>"
+./worktree-create.sh "<branch>" <repo1> <repo2> ...
+./bootstrap.sh
+```
+
+Stream output from both commands.
+
+### 4. Verify and report
+
+Run `./worktree-status.sh` and show the user the result. Highlight the newly created worktrees. Then print:
+
+```
+Worktrees ready. You can now work in:
+  <repo1>--<sanitized-branch>/
+  <repo2>--<sanitized-branch>/
+
+These share git history with the source repos — commits are lightweight.
+When done, commit in each worktree independently and open PRs per repo.
+To clean up later: ask me to "remove worktrees for <branch>"
+```
+
+---
+
+## Worktree Status
+
+Run:
+```sh
+cd "<workspace-root>" && ./worktree-status.sh
+```
+
+Present the output to the user. If any worktrees are dirty, highlight them. If any are ahead of their remote, suggest pushing.
+
+---
+
+## Worktree Remove
+
+### 1. Gather inputs
+
+**a) Branch name** — from the user's message or ask.
+
+**b) Which repos** — if the user didn't specify, default to ALL worktrees matching that branch.
+
+### 2. Safety check
+
+Run `./worktree-status.sh` and check if any of the target worktrees are dirty. If so, warn:
+
+```
+WARNING: These worktrees have uncommitted changes:
+  - <repo>--<branch>/ (3 files modified)
+
+Options:
+  - Commit changes first (I can help with that)
+  - Stash changes
+  - Force remove (changes will be lost!)
+```
+
+Use `AskUserQuestion` to let the user decide. Do NOT force-remove without explicit confirmation.
+
+### 3. Check for unpushed commits
+
+For each worktree, check if there are commits ahead of the remote:
+```sh
+git -C "<worktree-dir>" log --oneline @{upstream}..HEAD 2>/dev/null
+```
+
+If there are unpushed commits, warn the user and ask whether to push first.
+
+### 4. Execute removal
+
+```sh
+cd "<workspace-root>"
+./worktree-remove.sh "<branch>" <repo1> <repo2> ...
+./bootstrap.sh
+```
+
+Stream output.
+
+### 5. Report
+
+```
+Removed worktrees for '<branch>':
+  - <repo1>--<branch>/ ✓
+  - <repo2>--<branch>/ ✓
+
+workspace.conf and .gitignore updated. Stale .claude/ symlinks pruned.
+
+To also delete the local branches:
+  git -C <repo1> branch -d <branch>
+  git -C <repo2> branch -d <branch>
+
+Want me to delete the local branches too? (yes / no)
+```
+
+If yes, run the branch delete commands.
+
+---
+
+## Pull All
+
+Run:
+```sh
+cd "<workspace-root>" && ./pull-all.sh
+```
+
+Stream the output. If any pull fails (diverged history, not fast-forwardable), report which repos failed and suggest next steps (rebase, merge, etc.).
+
+After pulling, ask if the user wants to run `./bootstrap.sh` in case any pulled changes added/removed agents.
+
+---
+
+## Worktree workflow details
+
+### How worktrees are represented in workspace.conf
+
+The extended pipe format supports three entry types:
+
+```bash
+REPOS=(
+  # Standard clone (default branch)
+  "web-app|git@github.com:acme/web-app.git"
+
+  # Clone with specific branch
+  "shared-lib|git@github.com:acme/shared-lib.git|v2"
+
+  # Worktree: "dirname|worktree:<source-repo>|<branch>"
+  "web-app--feature-auth|worktree:web-app|feature/auth"
+  "api--feature-auth|worktree:api|feature/auth"
+)
+```
+
+### worktree-create.sh behavior
+
+When invoked with `./worktree-create.sh <branch> [repo1 repo2 ...]`:
+
+1. If no repos specified, acts on ALL standard (non-worktree) repos.
+2. For each repo: fetches latest, creates the branch if it doesn't exist (from `origin/<branch>` if available, else from HEAD).
+3. Creates the worktree at `<repo>--<sanitized-branch>/`.
+4. Appends worktree entries to `workspace.conf`.
+5. Appends worktree dirs to `.gitignore`.
+6. Prints instructions to run `./bootstrap.sh`.
+
+### worktree-remove.sh behavior
+
+When invoked with `./worktree-remove.sh <branch> [repo1 repo2 ...]`:
+
+1. Checks for uncommitted changes — refuses to remove dirty worktrees.
+2. Removes worktrees via `git worktree remove`.
+3. Removes entries from `workspace.conf` and `.gitignore`.
+4. Prints instructions to run `./bootstrap.sh` and optionally delete local branches.
+
+### worktree-status.sh behavior
+
+Prints a table of all repos and worktrees showing: directory name, type (clone/wt), current branch, and status (clean/dirty + ahead/behind).
+
+---
+
 ## Constraints and edge cases
 
-- **Never edit `bootstrap.sh` or `pull-all.sh` per workspace.** They are identical across every workspace; everything workspace-specific lives in `workspace.conf`.
-- **Never delete `.git` directories.** If a sub-repo path exists with a different remote, ask before any destructive action.
+- **Never edit `bootstrap.sh`, `pull-all.sh`, or `worktree-*.sh` per workspace.** They are identical across every workspace; everything workspace-specific lives in `workspace.conf`.
+- **Never delete `.git` directories or files.** If a sub-repo path exists with a different remote, ask before any destructive action. A `.git` file (not directory) indicates a worktree — treat it the same as a `.git` directory for detection purposes.
 - **Do not commit `.claude/agents/` etc.** to the workspace shell — they are symlinks regenerated by `bootstrap.sh` and are gitignored by the template.
+- **Worktree detection**: use `[ -d "$name/.git" ] || [ -f "$name/.git" ]` or `git -C "$name" rev-parse --git-dir` to detect both clones and worktrees.
 - **Macros & cross-platform**: the shell scripts target `bash` (not POSIX `sh`) and use `find -exec test -e`, `shopt -s nullglob`, `ln -sfn`. These all work on macOS BSD tools and GNU/Linux. Do not switch to symlink commands that require GNU-only flags.
 - **`${CLAUDE_PLUGIN_ROOT}`** is set by Claude Code when this skill runs; use it to read assets. If it isn't set, fall back to the path where this SKILL.md lives.
 - **URL parsing**: handle both `git@host:owner/repo.git` and `https://host/owner/repo[.git]`. Strip query strings and fragments. If parsing yields an empty name, ask the user explicitly.
 - **No emojis** in any generated file unless the user explicitly requests them.
+- **Worktree source must be cloned first**: `bootstrap.sh` processes entries in order. Standard clones must appear before any worktree entries that reference them. `worktree-create.sh` enforces this by checking that the source repo exists before creating worktrees.
 
 ---
 
 ## What this skill does NOT do
 
-- Manage existing workspaces (no add-repo / remove-repo flows). For that, the user edits `workspace.conf` and reruns `./bootstrap.sh`.
+- Add or remove repos from an existing workspace. For that, the user edits `workspace.conf` and reruns `./bootstrap.sh`.
 - Set up Cursor `.cursor/rules/` aggregation. Cursor multi-root workspaces handle per-root rules natively; the generated `<Name>.code-workspace` is enough.
 - Configure Claude Code agents. Agents must already be defined inside the sub-repos under `<repo>/.claude/agents/`.
 - Auto-resolve auth issues. If a `git clone` fails for SSH or HTTPS, surface the error and stop.
+- Merge git histories across repos. Each repo (and worktree) maintains its own independent git history — commits and PRs are managed per-repo.
+- Auto-open PRs. It commits and pushes per-repo, but the user decides when to open PRs (or can ask Claude to do it via `gh pr create` in each worktree).

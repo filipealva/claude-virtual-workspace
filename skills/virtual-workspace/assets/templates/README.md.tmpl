@@ -17,15 +17,39 @@ claude
 
 `bootstrap.sh` will:
 1. Clone any missing sub-repos listed in `workspace.conf`.
-2. Prune dead symlinks under `.claude/`.
-3. Symlink every `<repo>/.claude/{agents,commands,skills,hooks}/*` into this workspace's `.claude/`.
+2. Create any declared worktrees.
+3. Prune dead symlinks under `.claude/`.
+4. Symlink every `<repo>/.claude/{agents,commands,skills,hooks}/*` into this workspace's `.claude/`.
 
 It's idempotent — rerun any time.
 
 ## Daily use
 
-- `./pull-all.sh` — fast-forward pull every sub-repo.
+- `./pull-all.sh` — fast-forward pull every sub-repo and worktree.
 - `./bootstrap.sh` — rerun whenever a sub-repo adds / renames / removes an agent, command, skill, or hook.
+- `./worktree-status.sh` — show branch, dirty state, and ahead/behind for all repos and worktrees.
+
+## Multi-repo feature workflow (worktrees)
+
+When you need to work on a feature that spans multiple repos simultaneously:
+
+```sh
+# Create worktrees for the feature branch (all repos or specific ones)
+./worktree-create.sh feature/payments
+./worktree-create.sh feature/payments web-app api   # specific repos only
+
+# Wire up .claude/ symlinks for the new worktrees
+./bootstrap.sh
+
+# Work on the feature — each worktree is at <repo>--<branch>/
+# Commit and push in each independently, open PRs per repo
+
+# When done, clean up
+./worktree-remove.sh feature/payments
+./bootstrap.sh
+```
+
+Worktrees share the git object store with their source repo — they are lightweight (no full re-clone) and each tracks its own branch independently.
 
 ## Adding a new agent (or command / skill / hook)
 
@@ -42,7 +66,7 @@ It's idempotent — rerun any time.
 
 ## Why a workspace shell?
 
-The sub-repos are gitignored here — this shell **never** tracks their internal changes. It only owns the cross-repo glue: `bootstrap.sh`, `pull-all.sh`, `workspace.conf`, the workspace `CLAUDE.md`, and the symlink layout.
+The sub-repos are gitignored here — this shell **never** tracks their internal changes. It only owns the cross-repo glue: `bootstrap.sh`, `pull-all.sh`, `worktree-*.sh`, `workspace.conf`, the workspace `CLAUDE.md`, and the symlink layout.
 
 Coworkers who don't need the cross-repo setup can ignore this shell entirely and just work inside the individual sub-repos directly — agents are committed to those repos and load natively.
 

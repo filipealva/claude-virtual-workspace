@@ -15,6 +15,19 @@ This is a **workspace shell**, not a project. It exists so the following repos c
 - For a single-repo task, treat that sub-repo as cwd in spirit and follow its own `CLAUDE.md`. Use the matching agent if the sub-repo defines one.
 - For tasks that touch multiple sub-repos, make changes in each sub-repo's working tree and commit/push from each one separately. **This shell never tracks changes inside the sub-repos** (they are gitignored here).
 
+## Worktree workflow (multi-repo features)
+
+When working on a feature that spans multiple repos:
+
+1. **Create worktrees**: `./worktree-create.sh feature/my-feature` — creates a worktree for each repo on that branch.
+2. **Wire up symlinks**: `./bootstrap.sh` — makes Claude see agents/skills from the worktrees too.
+3. **Work in worktrees**: directories named `<repo>--<branch>` appear at the workspace root.
+4. **Check status**: `./worktree-status.sh` — see branch, dirty state, and ahead/behind for all.
+5. **Commit and PR**: commit in each worktree independently, open PRs per repo.
+6. **Clean up**: `./worktree-remove.sh feature/my-feature` then `./bootstrap.sh`.
+
+Worktrees share the git object store with their source repo — they are lightweight and do not duplicate history.
+
 ## When agents change
 
 If an agent / command / skill / hook is added, renamed, or removed inside a sub-repo, run `./bootstrap.sh` again — it's idempotent and prunes stale symlinks.

@@ -1,8 +1,13 @@
 # workspace.conf — sub-repos for the {{NAME}} workspace.
-# Format: REPOS=("name|git-url" ...)
+#
+# Format:
+#   Standard clone:  "name|git-url"
+#   Clone + branch:  "name|git-url|branch"
+#   Worktree:        "name|worktree:<source-repo>|branch"
 #
 # To add a repo: append a "name|url" line and run ./bootstrap.sh
 # To remove a repo: delete its line, run ./bootstrap.sh, then `rm -rf <name>` if desired.
+# To add worktrees: use ./worktree-create.sh <branch> [repos...]
 
 REPOS=(
 {{REPOS}}
