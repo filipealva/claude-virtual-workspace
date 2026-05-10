@@ -8,11 +8,11 @@
   "plugins": [
     {
       "name": "virtual-workspace",
-      "description": "Create virtual Claude Code workspaces that unify agents, commands, skills, and hooks across multiple sibling git repos.",
+      "description": "Create virtual Claude Code workspaces that unify agents, commands, skills, and hooks across multiple sibling git repos. Supports worktrees for synchronized multi-repo feature development.",
       "source": "./",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "productivity",
-      "tags": ["workspace", "agents", "multi-repo"]
+      "tags": ["workspace", "agents", "multi-repo", "worktree", "feature-branches"]
     }
   ]
 }
