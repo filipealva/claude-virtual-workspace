@@ -1,7 +1,7 @@
 {
   "name": "virtual-workspace",
   "description": "Create virtual Claude Code workspaces that unify agents, commands, skills, and hooks across multiple sibling git repos. Supports worktrees for synchronized multi-repo feature development.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Filipe Alvarenga"
   },

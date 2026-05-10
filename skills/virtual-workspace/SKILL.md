@@ -1,6 +1,6 @@
 ---
 name: virtual-workspace
-description: Use when the user wants to set up a parent folder that hosts multiple sibling git repos and unifies their Claude Code agents, commands, skills, and hooks into one session — e.g. "create a workspace for these repos", "I want one Claude session across my frontend and backend repos", "set up a multi-repo workspace", "combine repos for Claude", "make a workspace shell so I can use agents from multiple repos at once". Also use when the user wants to manage worktrees in an existing workspace — e.g. "create worktrees for feature/x", "set up feature branch across repos", "start a multi-repo feature", "remove worktrees for feature/x", "show worktree status", "I want to work on feature/x across all repos", "clean up the feature branch worktrees".
+description: Use when the user wants to set up a parent folder that hosts multiple sibling git repos and unifies their Claude Code agents, commands, skills, and hooks into one session — e.g. "create a workspace for these repos", "I want one Claude session across my frontend and backend repos", "set up a multi-repo workspace", "combine repos for Claude", "make a workspace shell so I can use agents from multiple repos at once". Also use when the user wants to manage worktrees in an existing workspace — e.g. "create worktrees for feature/x", "set up feature branch across repos", "start a multi-repo feature", "remove worktrees for feature/x", "show worktree status", "I want to work on feature/x across all repos", "clean up the feature branch worktrees", "also create worktree for backend", "add backend to feature/x worktrees", "need worktree for another repo on this branch", "extend worktrees to include api".
 user-invocable: true
 allowed-tools:
   - Read
@@ -229,8 +229,21 @@ Ask: "What branch name for this feature? (e.g. `feature/payments`, `fix/auth-bug
 
 If the user already stated the branch in their message (e.g. "create worktrees for feature/payments"), use that directly — don't re-ask.
 
-**b) Which repos** — `AskUserQuestion` (multi-select) or free text.
-Read `workspace.conf`, parse the standard (non-worktree) repos, and present them:
+**b) Detect existing worktrees for this branch.**
+Read `workspace.conf` and check for any existing worktree entries matching the branch. Partition the standard repos into two lists:
+
+- **Already has worktree**: repos that already have a `worktree:<repo>|<branch>` entry.
+- **Available**: repos that don't have a worktree for this branch yet.
+
+If **all standard repos already have worktrees** for this branch, tell the user and stop — there's nothing to create.
+
+**c) Route: fresh vs. incremental.**
+
+- **Fresh** (no existing worktrees for this branch): continue to step (d) below.
+- **Incremental** (some repos already have worktrees): skip to the **Incremental add** path (section below).
+
+**d) Which repos** — `AskUserQuestion` (multi-select) or free text (fresh path only).
+Present the full list of standard repos:
 
 > Which repos should get a worktree on `<branch>`?
 > - **All repos** (recommended) — creates worktrees for every standard repo
@@ -280,6 +293,72 @@ Worktrees ready. You can now work in:
 These share git history with the source repos — commits are lightweight.
 When done, commit in each worktree independently and open PRs per repo.
 To clean up later: ask me to "remove worktrees for <branch>"
+```
+
+---
+
+### Incremental add — Extending worktrees to additional repos
+
+This path runs when worktrees for `<branch>` already exist for some repos and the user (or an agent) wants to add more. This commonly happens when agents discover mid-flight that another repo needs changes for the same feature.
+
+#### 1. Show current state
+
+Print what already exists:
+
+```
+Branch '<branch>' already has worktrees in this workspace:
+  - <repo1>--<sanitized-branch>/ (exists)
+  - <repo2>--<sanitized-branch>/ (exists)
+
+Repos without a worktree for this branch:
+  - <repo3>
+  - <repo4>
+```
+
+#### 2. Which repos to add
+
+If the user already specified which repos to add (e.g. "also create worktree for backend"), use those directly — don't re-ask. Otherwise, use `AskUserQuestion` (multi-select) with the **available** repos only:
+
+> Which additional repos should get a worktree on `<branch>`?
+
+Show only repos that don't already have a worktree for this branch.
+
+#### 3. Confirm (lightweight)
+
+```
+I'll add worktrees for branch '<branch>' to:
+  - <repo3> → <repo3>--<sanitized-branch>/
+
+Existing worktrees are not affected.
+Proceed? (yes / no)
+```
+
+Wait for confirmation.
+
+#### 4. Execute
+
+Same as the fresh path:
+
+```sh
+cd "<workspace-root>"
+./worktree-create.sh "<branch>" <repo3> ...
+./bootstrap.sh
+```
+
+The script skips repos that already have worktrees, so passing the full list is safe — but prefer passing only the new repos for clearer output.
+
+#### 5. Verify and report
+
+Run `./worktree-status.sh` and show the result. Then print:
+
+```
+Added worktree for '<branch>':
+  - <repo3>--<sanitized-branch>/ (new)
+
+All worktrees for this branch:
+  - <repo1>--<sanitized-branch>/ (already existed)
+  - <repo2>--<sanitized-branch>/ (already existed)
+  - <repo3>--<sanitized-branch>/ (new)
 ```
 
 ---
