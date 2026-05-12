@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Clone any missing sub-repos, create any declared worktrees, and (re)build
-# .claude/ symlinks so Claude Code, launched from this workspace root, sees
-# every agent / command / skill / hook defined in any sub-repo or worktree.
+# .claude/ and .codex/ symlinks so AI coding assistants (Claude Code, Codex),
+# launched from this workspace root, see every agent / command / skill / hook
+# defined in any sub-repo or worktree.
 #
 # Idempotent — safe to rerun any time (after pulling, after adding repos, etc.).
 # Source of truth for sub-repos is workspace.conf.
@@ -18,6 +19,7 @@ fi
 source workspace.conf
 
 CLAUDE_DIRS=(agents commands skills hooks)
+CODEX_DIRS=(skills)
 
 is_git_work_tree() {
   [ -d "$1/.git" ] || [ -f "$1/.git" ]
@@ -55,9 +57,10 @@ for entry in "${REPOS[@]}"; do
   fi
 done
 
-# 2. Prune dead symlinks under .claude/ (handles deleted/renamed agents).
-mkdir -p .claude
+# 2. Prune dead symlinks under .claude/ and .codex/ (handles deleted/renamed agents).
+mkdir -p .claude .codex
 find .claude -type l ! -exec test -e {} \; -print -delete 2>/dev/null || true
+find .codex -type l ! -exec test -e {} \; -print -delete 2>/dev/null || true
 
 # 3. Symlink every <repo>/.claude/<kind>/* into .claude/<kind>/.
 for entry in "${REPOS[@]}"; do
@@ -69,6 +72,21 @@ for entry in "${REPOS[@]}"; do
     shopt -s nullglob
     for src in "$src_dir"/*; do
       ln -sfn "../../$src" ".claude/$kind/$(basename "$src")"
+    done
+    shopt -u nullglob
+  done
+done
+
+# 4. Symlink every <repo>/.codex/<kind>/* into .codex/<kind>/.
+for entry in "${REPOS[@]}"; do
+  name="${entry%%|*}"
+  for kind in "${CODEX_DIRS[@]}"; do
+    src_dir="$name/.codex/$kind"
+    [ -d "$src_dir" ] || continue
+    mkdir -p ".codex/$kind"
+    shopt -s nullglob
+    for src in "$src_dir"/*; do
+      ln -sfn "../../$src" ".codex/$kind/$(basename "$src")"
     done
     shopt -u nullglob
   done

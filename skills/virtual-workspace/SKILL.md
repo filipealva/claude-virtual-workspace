@@ -1,6 +1,6 @@
 ---
 name: virtual-workspace
-description: Use when the user wants to set up a parent folder that hosts multiple sibling git repos and unifies their Claude Code agents, commands, skills, and hooks into one session — e.g. "create a workspace for these repos", "I want one Claude session across my frontend and backend repos", "set up a multi-repo workspace", "combine repos for Claude", "make a workspace shell so I can use agents from multiple repos at once". Also use when the user wants to manage worktrees in an existing workspace — e.g. "create worktrees for feature/x", "set up feature branch across repos", "start a multi-repo feature", "remove worktrees for feature/x", "show worktree status", "I want to work on feature/x across all repos", "clean up the feature branch worktrees", "also create worktree for backend", "add backend to feature/x worktrees", "need worktree for another repo on this branch", "extend worktrees to include api".
+description: Use when the user wants to set up a parent folder that hosts multiple sibling git repos and unifies their AI coding assistant configs (agents, commands, skills, hooks) into one session — e.g. "create a workspace for these repos", "I want one Claude/Codex session across my frontend and backend repos", "set up a multi-repo workspace", "combine repos for Claude", "combine repos for Codex", "make a workspace shell so I can use agents from multiple repos at once". Also use when the user wants to manage worktrees in an existing workspace — e.g. "create worktrees for feature/x", "set up feature branch across repos", "start a multi-repo feature", "remove worktrees for feature/x", "show worktree status", "I want to work on feature/x across all repos", "clean up the feature branch worktrees", "also create worktree for backend", "add backend to feature/x worktrees", "need worktree for another repo on this branch", "extend worktrees to include api".
 user-invocable: true
 allowed-tools:
   - Read
@@ -10,7 +10,9 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /virtual-workspace — Multi-repo Claude Code workspace management
+# /virtual-workspace — Multi-repo workspace management for AI coding assistants
+
+This skill creates workspaces compatible with both **Claude Code** (`.claude/`) and **Codex** (`.codex/`).
 
 This skill has two modes:
 
@@ -26,13 +28,16 @@ When this skill is invoked, check whether `workspace.conf` exists in the current
 
 ---
 
-# Create flow — Build a new multi-repo Claude Code workspace shell
+# Create flow — Build a new multi-repo workspace shell
 
-This flow creates a **workspace shell**: a parent folder that hosts multiple sibling git repos and exposes the union of their `.claude/{agents,commands,skills,hooks}/` to a single Claude Code session via symlinks. It is the canonical workaround for the fact that Claude Code does not natively merge `.claude/` configs across sibling roots.
+This flow creates a **workspace shell**: a parent folder that hosts multiple sibling git repos and exposes the union of their AI coding assistant configs to a single session via symlinks:
+
+- **Claude Code**: `.claude/{agents,commands,skills,hooks}/`
+- **Codex**: `.codex/skills/`
 
 The workspace shell never tracks changes inside the sub-repos — they are gitignored. The shell only owns the cross-repo glue.
 
-The workspace supports **worktrees** for multi-repo feature development: create synchronized feature branches across multiple repos, work on them in one Claude session, commit/push independently, and open PRs per repo.
+The workspace supports **worktrees** for multi-repo feature development: create synchronized feature branches across multiple repos, work on them in one session, commit/push independently, and open PRs per repo.
 
 ---
 
@@ -47,6 +52,7 @@ This skill ships canonical scripts and templates in `${CLAUDE_PLUGIN_ROOT}/skill
 - `worktree-status.sh` — copy verbatim into every new workspace
 - `templates/workspace.conf.tmpl`
 - `templates/CLAUDE.md.tmpl`
+- `templates/AGENTS.md.tmpl`
 - `templates/README.md.tmpl`
 - `templates/gitignore.tmpl`
 - `templates/code-workspace.tmpl`
@@ -63,7 +69,7 @@ Follow these steps in order. Do not skip the confirmation step.
 
 Tell the user, in 2-3 sentences, what you're about to build and that the shell will not track sub-repo contents. Example:
 
-> I'll create a workspace shell — a thin parent folder that holds your repos side-by-side and surfaces all their Claude Code agents/commands/skills/hooks in one session via symlinks. The shell itself never tracks the sub-repos' contents; it only owns the cross-repo glue (bootstrap script, workspace.conf, etc.). It also includes worktree scripts for multi-repo feature branches.
+> I'll create a workspace shell — a thin parent folder that holds your repos side-by-side and surfaces all their AI coding assistant configs (agents/commands/skills/hooks) in one session via symlinks. It works with both Claude Code (`.claude/`) and Codex (`.codex/`). The shell itself never tracks the sub-repos' contents; it only owns the cross-repo glue (bootstrap script, workspace.conf, etc.). It also includes worktree scripts for multi-repo feature branches.
 
 ### 2. Gather inputs
 
@@ -108,6 +114,7 @@ Files I will create at <parent>/<Name>/:
   worktree-remove.sh
   worktree-status.sh
   CLAUDE.md
+  AGENTS.md
   README.md
   .gitignore
   <Name>.code-workspace
@@ -130,6 +137,7 @@ Use absolute paths throughout. Let `WS=<parent>/<Name>` and `ASSETS=${CLAUDE_PLU
    | ------------------------- | --------------------------- | ------------- |
    | `workspace.conf.tmpl`     | `workspace.conf`            | `{{NAME}}` → workspace name. `{{REPOS}}` → newline-joined `  "name|url"` entries (note the two-space indent so they align inside the `REPOS=(...)` array). |
    | `CLAUDE.md.tmpl`          | `CLAUDE.md`                 | `{{NAME}}` → workspace name. `{{REPO_LIST}}` → newline-joined bullets in the form `- \`<name>/\` — <one-line description, leave blank if unknown>`. |
+   | `AGENTS.md.tmpl`          | `AGENTS.md`                 | `{{NAME}}` → workspace name. `{{REPO_LIST}}` → same bullets as above. |
    | `README.md.tmpl`          | `README.md`                 | `{{NAME}}` → workspace name. `{{REPO_LIST}}` → same bullets as above. `{{CLONE_INSTRUCTION}}` → see step 6 below; until the workspace is published, write `# (workspace not yet pushed to a remote — clone command will be added when published)`. |
    | `gitignore.tmpl`          | `.gitignore`                | `{{REPO_DIRS}}` → newline-joined `<name>/` lines. |
    | `code-workspace.tmpl`     | `<Name>.code-workspace`     | `{{FOLDERS}}` → for each sub-repo, prepend `,\n    { "name": "<name>", "path": "<name>" }`. (The leading comma + 4-space indent matches the existing `Workspace` entry in the template.) |
@@ -144,7 +152,8 @@ cd "$WS" && ./bootstrap.sh
 
 Stream the output. After it completes, verify the result:
 
-- `find "$WS/.claude" -type l | head` — list created symlinks.
+- `find "$WS/.claude" -type l | head` — list Claude Code symlinks.
+- `find "$WS/.codex" -type l | head` — list Codex symlinks.
 - For each symlink, confirm `readlink -f` resolves to a real file.
 - Report agent counts to the user as: `<repo-1>: 2 agents, 0 commands; <repo-2>: 1 agent, 0 commands; ...`. Use `find <repo>/.claude/<kind> -maxdepth 1 -type f -name "*.md" | wc -l` for each.
 
@@ -166,7 +175,7 @@ If yes:
 3. `cd "$WS"`, then `git init -b main`.
 4. Stage **only the shell files** (NOT the sub-repo dirs):
    ```sh
-   git add .gitignore CLAUDE.md README.md bootstrap.sh pull-all.sh worktree-create.sh worktree-remove.sh worktree-status.sh workspace.conf <Name>.code-workspace
+   git add .gitignore CLAUDE.md AGENTS.md README.md bootstrap.sh pull-all.sh worktree-create.sh worktree-remove.sh worktree-status.sh workspace.conf <Name>.code-workspace
    ```
 5. Commit with a HEREDOC message ending with the standard `Co-Authored-By: Claude` trailer.
 6. For "create new repo": `gh repo create <owner>/<name> --private --source=. --push`. For existing-repo path: `git remote add origin <url> && git push -u origin main`.
@@ -183,7 +192,8 @@ Workspace ready at: <parent>/<Name>/
 
 Next steps:
   cd <parent>/<Name>
-  claude                          # start a Claude Code session with all sub-repo agents loaded
+  claude                          # start a Claude Code session
+  codex                           # or start a Codex session
 
 Maintenance:
   ./pull-all.sh                   # fast-forward pull every sub-repo and worktree
@@ -264,7 +274,7 @@ This will:
   1. Create the branch in each repo (if it doesn't exist)
   2. Create worktree directories
   3. Update workspace.conf and .gitignore
-  4. Run bootstrap.sh to wire up .claude/ symlinks
+  4. Run bootstrap.sh to wire up .claude/ and .codex/ symlinks
 
 Proceed? (yes / no / changes)
 ```
@@ -424,7 +434,7 @@ Removed worktrees for '<branch>':
   - <repo1>--<branch>/ ✓
   - <repo2>--<branch>/ ✓
 
-workspace.conf and .gitignore updated. Stale .claude/ symlinks pruned.
+workspace.conf and .gitignore updated. Stale .claude/ and .codex/ symlinks pruned.
 
 To also delete the local branches:
   git -C <repo1> branch -d <branch>
@@ -500,7 +510,7 @@ Prints a table of all repos and worktrees showing: directory name, type (clone/w
 
 - **Never edit `bootstrap.sh`, `pull-all.sh`, or `worktree-*.sh` per workspace.** They are identical across every workspace; everything workspace-specific lives in `workspace.conf`.
 - **Never delete `.git` directories or files.** If a sub-repo path exists with a different remote, ask before any destructive action. A `.git` file (not directory) indicates a worktree — treat it the same as a `.git` directory for detection purposes.
-- **Do not commit `.claude/agents/` etc.** to the workspace shell — they are symlinks regenerated by `bootstrap.sh` and are gitignored by the template.
+- **Do not commit `.claude/agents/` etc.** to the workspace shell — they are symlinks regenerated by `bootstrap.sh` and are gitignored by the template. Same for `.codex/skills/`.
 - **Worktree detection**: use `[ -d "$name/.git" ] || [ -f "$name/.git" ]` or `git -C "$name" rev-parse --git-dir` to detect both clones and worktrees.
 - **Macros & cross-platform**: the shell scripts target `bash` (not POSIX `sh`) and use `find -exec test -e`, `shopt -s nullglob`, `ln -sfn`. These all work on macOS BSD tools and GNU/Linux. Do not switch to symlink commands that require GNU-only flags.
 - **`${CLAUDE_PLUGIN_ROOT}`** is set by Claude Code when this skill runs; use it to read assets. If it isn't set, fall back to the path where this SKILL.md lives.
@@ -514,7 +524,7 @@ Prints a table of all repos and worktrees showing: directory name, type (clone/w
 
 - Add or remove repos from an existing workspace. For that, the user edits `workspace.conf` and reruns `./bootstrap.sh`.
 - Set up Cursor `.cursor/rules/` aggregation. Cursor multi-root workspaces handle per-root rules natively; the generated `<Name>.code-workspace` is enough.
-- Configure Claude Code agents. Agents must already be defined inside the sub-repos under `<repo>/.claude/agents/`.
+- Configure agents. Agents must already be defined inside the sub-repos under `<repo>/.claude/agents/` or `<repo>/.codex/skills/`.
 - Auto-resolve auth issues. If a `git clone` fails for SSH or HTTPS, surface the error and stop.
 - Merge git histories across repos. Each repo (and worktree) maintains its own independent git history — commits and PRs are managed per-repo.
-- Auto-open PRs. It commits and pushes per-repo, but the user decides when to open PRs (or can ask Claude to do it via `gh pr create` in each worktree).
+- Auto-open PRs. It commits and pushes per-repo, but the user decides when to open PRs (or can ask their AI assistant to do it via `gh pr create` in each worktree).
