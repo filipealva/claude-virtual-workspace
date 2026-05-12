@@ -41,25 +41,39 @@ After setup, `cd <Name> && claude` (or `codex`) starts a session that sees every
 
 ## Install
 
-### Via the marketplace (recommended)
+### Claude Code
 
 ```sh
 /plugin marketplace add https://github.com/filipealva/virtual-workspace
 /plugin install virtual-workspace@filipealva
 ```
 
-Restart your Claude Code session. Then trigger the skill:
+Restart your session, then trigger the skill:
 
 > Create a virtual workspace with `<repo-url-1>` and `<repo-url-2>`
 
 Or invoke it directly with `/virtual-workspace`.
 
+### Codex
+
+```sh
+codex plugin marketplace add filipealva/virtual-workspace
+```
+
+Then use the `$virtual-workspace` skill in a Codex session.
+
 ### Manual install
 
 ```sh
 git clone https://github.com/filipealva/virtual-workspace /tmp/vw
+
+# Claude Code
 mkdir -p ~/.claude/skills
 cp -r /tmp/vw/skills/virtual-workspace ~/.claude/skills/
+
+# Codex
+mkdir -p ~/.codex/skills
+cp -r /tmp/vw/skills/virtual-workspace ~/.codex/skills/
 ```
 
 ## Multi-repo feature development with worktrees
