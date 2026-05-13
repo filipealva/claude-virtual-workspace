@@ -20,7 +20,7 @@ claude    # or: codex
 2. Create any declared worktrees.
 3. Prune dead symlinks under `.claude/` and `.codex/`.
 4. Symlink every `<repo>/.claude/{agents,commands,skills,hooks}/*` into this workspace's `.claude/`.
-5. Symlink every `<repo>/.codex/skills/*` into this workspace's `.codex/skills/`.
+5. Symlink every `<repo>/.codex/{agents,skills}/*` into this workspace's `.codex/`.
 
 It's idempotent — rerun any time.
 
@@ -28,6 +28,7 @@ It's idempotent — rerun any time.
 
 - `./pull-all.sh` — fast-forward pull every sub-repo and worktree.
 - `./bootstrap.sh` — rerun whenever a sub-repo adds / renames / removes an agent, command, skill, or hook.
+- `./assistant-support.sh codex|claude|both` — add missing repo-local config for another assistant CLI, then rerun bootstrap.
 - `./worktree-status.sh` — show branch, dirty state, and ahead/behind for all repos and worktrees.
 
 ## Multi-repo feature workflow (worktrees)
@@ -83,7 +84,7 @@ web-app--feature-payments      wt       feature/payments          dirty (2 files
 
 ## Adding a new agent (or command / skill / hook)
 
-1. Create the file inside the relevant sub-repo: `<sub-repo>/.claude/agents/foo.md` or `<sub-repo>/.codex/skills/foo/SKILL.md`.
+1. Create the file inside the relevant sub-repo: `<sub-repo>/.claude/agents/foo.md`, `<sub-repo>/.codex/agents/foo.md`, or `<sub-repo>/.codex/skills/foo/SKILL.md`.
 2. Commit and push it inside that sub-repo.
 3. Each teammate runs `./bootstrap.sh` to pick it up. Done.
 
@@ -96,7 +97,7 @@ web-app--feature-payments      wt       feature/payments          dirty (2 files
 
 ## Why a workspace shell?
 
-The sub-repos are gitignored here — this shell **never** tracks their internal changes. It only owns the cross-repo glue: `bootstrap.sh`, `pull-all.sh`, `worktree-*.sh`, `workspace.conf`, the workspace `CLAUDE.md` / `AGENTS.md`, and the symlink layout.
+The sub-repos are gitignored here — this shell **never** tracks their internal changes. It only owns the cross-repo glue: `bootstrap.sh`, `pull-all.sh`, `assistant-support.sh`, `worktree-*.sh`, `workspace.conf`, the workspace `CLAUDE.md` / `AGENTS.md`, and the symlink layout.
 
 Coworkers who don't need the cross-repo setup can ignore this shell entirely and just work inside the individual sub-repos directly — agents are committed to those repos and load natively.
 

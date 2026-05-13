@@ -5,7 +5,7 @@ A plugin that creates **virtual multi-repo workspaces** with **synchronized work
 AI coding assistants like Claude Code and Codex load configs (agents, commands, skills, hooks) only from the working directory they were launched from — they do **not** merge configs across sibling repos. This plugin creates a thin "workspace shell" that hosts multiple sibling git repos and symlinks each repo's config directories into a unified layout, so a single session sees the union of all of them:
 
 - **Claude Code**: `.claude/{agents,commands,skills,hooks}/*`
-- **Codex**: `.codex/skills/*`
+- **Codex**: `.codex/{agents,skills}/*`
 
 ## Features
 
@@ -24,6 +24,7 @@ When invoked, the `virtual-workspace` skill walks you through naming the workspa
 <Name>/
 ├── workspace.conf              # source of truth: list of sub-repos and worktrees
 ├── bootstrap.sh                # clones repos, creates worktrees, (re)builds symlinks
+├── assistant-support.sh        # mirror repo-local config when adding Codex or Claude Code later
 ├── pull-all.sh                 # fast-forward pull every sub-repo and worktree
 ├── worktree-create.sh          # create worktrees for a feature branch across repos
 ├── worktree-remove.sh          # clean up worktrees when a feature is merged
@@ -38,6 +39,8 @@ When invoked, the `virtual-workspace` skill walks you through naming the workspa
 It runs `bootstrap.sh` for you (cloning repos, creating symlinks), and optionally pushes the workspace shell to a new GitHub repo.
 
 After setup, `cd <Name> && claude` (or `codex`) starts a session that sees every sub-repo's agents in one place.
+
+If you add one assistant CLI after the workspace already exists, run `./assistant-support.sh codex`, `./assistant-support.sh claude`, or `./assistant-support.sh both`. It mirrors repo-local config into the missing layout and reruns `./bootstrap.sh`.
 
 ## Install
 
@@ -99,6 +102,29 @@ This will:
 4. Append worktree entries to `workspace.conf` and `.gitignore`.
 
 After creating worktrees, run `./bootstrap.sh` to wire up `.claude/` and `.codex/` symlinks for the new directories.
+
+## Adding Claude Code or Codex after setup
+
+Older workspaces, or workspaces that started with only one assistant's repo-local config, can be upgraded in place:
+
+```sh
+# Add Codex config from existing Claude Code config
+./assistant-support.sh codex
+
+# Add Claude Code config from existing Codex config
+./assistant-support.sh claude
+
+# Sync both directions
+./assistant-support.sh both
+```
+
+The helper updates each checked-out repo declared in `workspace.conf`:
+
+- `codex` copies `.claude/agents/*.md` to `.codex/agents/` and converts `.claude/skills/*.md` to `.codex/skills/<name>/SKILL.md`.
+- `claude` copies `.codex/agents/*.md` to `.claude/agents/` and copies `.codex/skills/<name>/` to `.claude/skills/<name>/`.
+- `both` runs both directions.
+
+It then runs `./bootstrap.sh`, which links `.claude/{agents,commands,skills,hooks}` and `.codex/{agents,skills}` into the workspace root. If duplicate names exist across repos, later entries in `workspace.conf` win.
 
 ### Incremental worktree expansion
 
@@ -214,7 +240,7 @@ When agents, commands, skills, or hooks change inside a sub-repo (added, renamed
 
 Each sub-repo is gitignored by the workspace shell, so the shell never tracks code from the actual projects. It only owns the cross-repo glue. The result is a clean separation:
 
-- **Sub-repos** stay normal. Coworkers who only work on one repo ignore the workspace shell entirely; agents committed to each repo's `.claude/agents/` (or `.codex/skills/`) load natively when they `cd` into that repo.
+- **Sub-repos** stay normal. Coworkers who only work on one repo ignore the workspace shell entirely; agents committed to each repo's `.claude/agents/`, `.codex/agents/`, or `.codex/skills/` load natively when they `cd` into that repo.
 - **Workspace shell** is a one-time setup for people who regularly work across multiple repos in a single AI assistant session.
 - **Worktrees** share git history with their source repo — they are lightweight and don't duplicate the object store.
 

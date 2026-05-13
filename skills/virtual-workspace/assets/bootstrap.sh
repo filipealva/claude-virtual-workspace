@@ -19,7 +19,7 @@ fi
 source workspace.conf
 
 CLAUDE_DIRS=(agents commands skills hooks)
-CODEX_DIRS=(skills)
+CODEX_DIRS=(agents skills)
 
 is_git_work_tree() {
   [ -d "$1/.git" ] || [ -f "$1/.git" ]
