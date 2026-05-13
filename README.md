@@ -1,11 +1,8 @@
-# virtual-workspace
+<p align="center">
+  <img src="assets/banner.png" alt="Virtual Workspaces for Claude Code + Codex" width="100%" />
+</p>
 
-A plugin that creates **virtual multi-repo workspaces** with **synchronized worktree support** for cross-repo feature development. Works with **Claude Code** and **Codex**.
-
-AI coding assistants like Claude Code and Codex load configs (agents, commands, skills, hooks) only from the working directory they were launched from — they do **not** merge configs across sibling repos. This plugin creates a thin "workspace shell" that hosts multiple sibling git repos and symlinks each repo's config directories into a unified layout, so a single session sees the union of all of them:
-
-- **Claude Code**: `.claude/{agents,commands,skills,hooks}/*`
-- **Codex**: `.codex/{agents,skills}/*`
+One top-level session for multi-repo development, repo-specific agents, and synced feature worktrees. Works with **Claude Code** and **Codex**.
 
 ## Features
 
