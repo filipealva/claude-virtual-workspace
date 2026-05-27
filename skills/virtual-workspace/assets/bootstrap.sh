@@ -63,6 +63,8 @@ find .claude -type l ! -exec test -e {} \; -print -delete 2>/dev/null || true
 find .codex -type l ! -exec test -e {} \; -print -delete 2>/dev/null || true
 
 # 3. Symlink every <repo>/.claude/<kind>/* into .claude/<kind>/.
+#    Prefix each symlink with "<repo>--" to avoid collisions when multiple
+#    sub-repos export identically named agents/skills/hooks/commands.
 for entry in "${REPOS[@]}"; do
   name="${entry%%|*}"
   for kind in "${CLAUDE_DIRS[@]}"; do
@@ -71,7 +73,7 @@ for entry in "${REPOS[@]}"; do
     mkdir -p ".claude/$kind"
     shopt -s nullglob
     for src in "$src_dir"/*; do
-      ln -sfn "../../$src" ".claude/$kind/$(basename "$src")"
+      ln -sfn "../../$src" ".claude/$kind/${name}--$(basename "$src")"
     done
     shopt -u nullglob
   done
@@ -86,7 +88,7 @@ for entry in "${REPOS[@]}"; do
     mkdir -p ".codex/$kind"
     shopt -s nullglob
     for src in "$src_dir"/*; do
-      ln -sfn "../../$src" ".codex/$kind/$(basename "$src")"
+      ln -sfn "../../$src" ".codex/$kind/${name}--$(basename "$src")"
     done
     shopt -u nullglob
   done

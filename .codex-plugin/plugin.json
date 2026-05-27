@@ -1,6 +1,6 @@
 {
   "name": "virtual-workspace",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Create virtual workspaces that unify AI coding assistant configs (agents, commands, skills, hooks) across multiple sibling git repos. Works with Claude Code and Codex. Supports worktrees for synchronized multi-repo feature development.",
   "skills": "./skills/",
   "author": {
