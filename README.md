@@ -1,3 +1,5 @@
+
+
 <p align="center">
   <img src="assets/banner.png" alt="Virtual Workspaces for Claude Code + Codex" width="100%" />
 </p>
@@ -121,7 +123,7 @@ The helper updates each checked-out repo declared in `workspace.conf`:
 - `claude` copies `.codex/agents/*.md` to `.claude/agents/` and copies `.codex/skills/<name>/` to `.claude/skills/<name>/`.
 - `both` runs both directions.
 
-It then runs `./bootstrap.sh`, which links `.claude/{agents,commands,skills,hooks}` and `.codex/{agents,skills}` into the workspace root. If duplicate names exist across repos, later entries in `workspace.conf` win.
+It then runs `./bootstrap.sh`, which links `.claude/{agents,commands,skills,hooks}` and `.codex/{agents,skills}` into the workspace root. Symlinks are prefixed with the source directory name, so identically named files from different repos don't collide.
 
 ### Incremental worktree expansion
 
